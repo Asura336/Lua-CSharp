@@ -118,6 +118,11 @@ end
                 var res = method switch
                 {
                     "count" => userData.Count,
+                    // 如果要支持成员方法...
+                    // 需要传递隐式的 this 引用
+                    // 这里返回一张新表，表成员包含 userData，其元表的 __call 函数映射到对应的过程？
+                    // 但是每次调用方法生成一个新表总觉得有点……
+                    // 或者干脆放弃这种做法，用类似于 ClassName.MethodName(obj, param...) 的写法
                     _ => LuaValue.Nil,
                 };
                 buffer.Span[0] = res;

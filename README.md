@@ -32,3 +32,27 @@
 Lua 在初始化表时如果有很多参数，会尝试将多参数拆分成多个 `SETLIST` 指令，原有的实现中如果拆分次数多于 1 就会让其它指令覆盖最初的 `NEWTABLE` 指令。为了修复这个异常，我扩增了 `Instruction` 结构的尺寸，从 4 字节增加到 8 字节，相应的内部字段也从 `UInt8` 扩增到 `UInt16`，并在 `LuaCompile::VisitTableConstructorExpressionNode(TableConstructorExpressionNode, ScopeCompilationContext)` 中略微修改了生成 `SETLIST` 指令时写入的栈位置。
 
 这会增加一些内存开销，但对 x64 CPU 来说应该不会变得更慢，而且这让测试用例通过了。
+
+
+
+## 扩展功能（画饼时间）
+
+就像 `Lua-CSharp` 这个库的初衷是像 `MoonSharp` 一样实现一个便利的互操作脚本接口，提供一些便利的功能可能比兼容原有的 Lua 更有益。
+
+
+
+### List
+
+// 施工中
+
+
+
+### map
+
+// 施工中
+
+
+
+### dictionary
+
+// 施工中
