@@ -271,8 +271,8 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                           * 在 arrayBlock 不是 1，也就是至少切分出一次 SETLIST 指令后让偏移量的计算方式稍稍改变
                           */
                         context.StackPosition = arrayBlock == 1
-                            ? (byte)(prevStackPosition + currentArrayChunkSize)
-                            : (byte)(prevStackPosition + currentArrayChunkSize - MAX_CHUNK_LENGTH * arrayBlock);
+                            ? (ushort)(prevStackPosition + currentArrayChunkSize)
+                            : (ushort)(prevStackPosition + currentArrayChunkSize - MAX_CHUNK_LENGTH * arrayBlock);
 
                         // For the last element, we need to take into account variable arguments and multiple return values.
                         if (listItem == lastField)
