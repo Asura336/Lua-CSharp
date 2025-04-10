@@ -155,10 +155,7 @@ namespace Lua.Internal
         private void Initialize(int capacity)
         {
             var newSize = 8;
-            while (newSize < capacity)
-            {
-                newSize *= 2;
-            }
+            if (newSize < capacity) { newSize = CommonUtils.CeilPow2(capacity); }
 
             int size = newSize;
             int[] buckets = new int[size];
@@ -170,7 +167,7 @@ namespace Lua.Internal
             _entries = entries;
         }
 
-        private void Insert(LuaValue key, LuaValue value)
+        private void Insert(in LuaValue key, in LuaValue value)
         {
             if (value.Type is LuaValueType.Nil)
             {

@@ -15,7 +15,7 @@ public sealed class ModuleLibrary
 
     public readonly LuaFunction RequireFunction;
 
-    public async ValueTask<int> Require(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static async ValueTask<int> Require(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<string>(0);
         var loaded = context.State.LoadedModules;

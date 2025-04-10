@@ -1,6 +1,6 @@
-using Lua.Internal;
 using Lua.CodeAnalysis.Syntax;
 using Lua.CodeAnalysis.Syntax.Nodes;
+using Lua.Internal;
 using Lua.Runtime;
 
 namespace Lua.CodeAnalysis.Compilation;
@@ -101,7 +101,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         return true;
     }
 
-    void CompileVariableArgumentsExpression(VariableArgumentsExpressionNode node, ScopeCompilationContext context, int resultCount)
+    static void CompileVariableArgumentsExpression(VariableArgumentsExpressionNode node, ScopeCompilationContext context, int resultCount)
     {
         context.PushInstruction(Instruction.VarArg(context.StackPosition, (ushort)(resultCount == -1 ? 0 : resultCount + 1)), node.Position, true);
     }
@@ -133,7 +133,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         var r = context.StackPosition;
         if (node.OperatorType is BinaryOperator.And or BinaryOperator.Or)
         {
-            byte a;
+            ushort a;
             if (node.LeftNode is IdentifierNode leftIdentifier)
             {
                 a = GetOrLoadIdentifier(leftIdentifier.Name, context, leftIdentifier.Position, true);
@@ -144,7 +144,16 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                 a = context.StackTopPosition;
             }
 
-            context.PushInstruction(Instruction.Test(a, (byte)(node.OperatorType is BinaryOperator.And ? 0 : 1)), node.Position);
+            switch (node.OperatorType)
+            {
+                case BinaryOperator.And:
+                    context.PushInstruction(Instruction.Test(a, 0), node.Position);
+                    break;
+                default:
+                    context.PushInstruction(Instruction.Test(a, 1), node.Position);
+                    break;
+            }
+
             var testJmpIndex = context.Function.Instructions.Length;
             context.PushInstruction(Instruction.Jmp(0, 0), node.Position);
 
@@ -213,7 +222,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                     break;
             }
 
-            context.StackPosition = (byte)(r + 1);
+            context.StackPosition = (ushort)(r + 1);
         }
 
         return true;
@@ -231,7 +240,14 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         var newTableInstructionIndex = context.Function.Instructions.Length;
         context.PushInstruction(Instruction.NewTable(tableRegisterIndex, 0, 0), node.Position, true);
 
-        var currentArrayChunkSize = 0;
+        /* 在解析 Lua 脚本时遇到初始化声明 table 的情形会根据某个长度截断，生成额外的 SETLIST 指令
+         * 下面这个常量会影响声明 table 的时候内部截断的时机
+         * 而这种截断会导致栈空间内寻址出现问题，本来属于 table 的栈空间地址被其它值覆盖了
+         * 扩增了 Instruction 结构的二进制大小，也对后续 StackPosition 动了点手脚
+         * 我也不知道这种做法对不对，但目前看起来有用
+         */
+        const int MAX_CHUNK_LENGTH = 50;
+        int currentArrayChunkSize = 0;
         ushort hashMapSize = 0;
         ushort arrayBlock = 1;
 
@@ -245,12 +261,18 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         {
             foreach (var field in group)
             {
-                var p = context.StackPosition;
+                var prevStackPosition = context.StackPosition;
 
                 switch (field)
                 {
                     case ListTableConstructorField listItem:
-                        context.StackPosition = (byte)(p + currentArrayChunkSize - 50 * (arrayBlock - 1));
+                        /* 原实现始终是
+                          * (prevStackPosition + currentArrayChunkSize - MAX_CHUNK_LENGTH * (arrayBlock - 1))
+                          * 在 arrayBlock 不是 1，也就是至少切分出一次 SETLIST 指令后让偏移量的计算方式稍稍改变
+                          */
+                        context.StackPosition = arrayBlock == 1
+                            ? (byte)(prevStackPosition + currentArrayChunkSize)
+                            : (byte)(prevStackPosition + currentArrayChunkSize - MAX_CHUNK_LENGTH * arrayBlock);
 
                         // For the last element, we need to take into account variable arguments and multiple return values.
                         if (listItem == lastField)
@@ -274,7 +296,9 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                                     break;
                             }
 
-                            context.PushInstruction(Instruction.SetList(tableRegisterIndex, (ushort)(isFixedItems ? context.StackTopPosition - tableRegisterIndex : 0), arrayBlock), listItem.Position);
+                            context.PushInstruction(Instruction.SetList(tableRegisterIndex,
+                                (ushort)(isFixedItems ? context.StackTopPosition - tableRegisterIndex : 0),
+                                arrayBlock), listItem.Position);
                             currentArrayChunkSize = 0;
                         }
                         else
@@ -283,9 +307,11 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
 
                             currentArrayChunkSize++;
 
-                            if (currentArrayChunkSize == 50)
+                            if (currentArrayChunkSize == MAX_CHUNK_LENGTH)
                             {
-                                context.PushInstruction(Instruction.SetList(tableRegisterIndex, 50, arrayBlock), listItem.Position);
+                                context.PushInstruction(Instruction.SetList(tableRegisterIndex,
+                                    MAX_CHUNK_LENGTH, arrayBlock),
+                                    listItem.Position);
                                 currentArrayChunkSize = 0;
                                 arrayBlock++;
                             }
@@ -296,7 +322,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                         recordItem.ValueExpression.Accept(this, context);
                         var keyConstIndex = context.Function.GetConstantIndex(recordItem.Key) + 256;
 
-                        context.PushInstruction(Instruction.SetTable(tableRegisterIndex, (ushort)keyConstIndex, p), recordItem.Position);
+                        context.PushInstruction(Instruction.SetTable(tableRegisterIndex, (ushort)keyConstIndex, prevStackPosition), recordItem.Position);
                         hashMapSize++;
                         break;
                     case GeneralTableConstructorField generalItem:
@@ -312,7 +338,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                         throw new NotSupportedException();
                 }
 
-                context.StackPosition = p;
+                context.StackPosition = prevStackPosition;
             }
 
             if (currentArrayChunkSize > 0)
@@ -323,7 +349,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
             }
         }
 
-        context.Function.Instructions[newTableInstructionIndex].B = (ushort)(currentArrayChunkSize + (arrayBlock - 1) * 50);
+        context.Function.Instructions[newTableInstructionIndex].B = (ushort)(currentArrayChunkSize + (arrayBlock - 1) * MAX_CHUNK_LENGTH);
         context.Function.Instructions[newTableInstructionIndex].C = hashMapSize;
 
         return true;
@@ -340,7 +366,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
 
         // push interuction
         context.PushInstruction(Instruction.GetTable(tablePosition, tablePosition, keyPosition), node.Position);
-        context.StackPosition = (byte)(tablePosition + 1);
+        context.StackPosition = (ushort)(tablePosition + 1);
 
         return true;
     }
@@ -356,7 +382,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
 
         // push interuction
         context.PushInstruction(Instruction.GetTable(tablePosition, tablePosition, (ushort)keyIndex), node.Position);
-        context.StackPosition = (byte)(tablePosition + 1);
+        context.StackPosition = (ushort)(tablePosition + 1);
 
         return true;
     }
@@ -384,7 +410,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
 
         // get closure
         context.PushInstruction(Instruction.Self(tablePosition, tablePosition, (ushort)keyIndex), node.Position);
-        context.StackPosition = (byte)(tablePosition + 2);
+        context.StackPosition = (ushort)(tablePosition + 2);
 
         // load arguments
         var b = node.ArgumentNodes.Length + 2;
@@ -404,7 +430,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         else
         {
             context.PushInstruction(Instruction.Call(tablePosition, (ushort)b, (ushort)(resultCount < 0 ? 0 : resultCount + 1)), node.Position);
-            context.StackPosition = (byte)(tablePosition + resultCount);
+            context.StackPosition = (ushort)(tablePosition + resultCount);
         }
     }
 
@@ -451,8 +477,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
 
         for (int i = 0; i < node.Identifiers.Length; i++)
         {
-            context.StackPosition = (byte)(startPosition + i + 1);
-
+            context.StackPosition = (ushort)(startPosition + i + 1);
             var identifier = node.Identifiers[i];
 
             if (context.TryGetLocalVariableInThisScope(identifier.Name, out var variable))
@@ -465,7 +490,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                 // register local variable
                 context.AddLocalVariable(identifier.Name, new()
                 {
-                    RegisterIndex = (byte)(context.StackPosition - 1),
+                    RegisterIndex = (ushort)(context.StackPosition - 1),
                 });
             }
         }
@@ -480,56 +505,56 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
 
         for (int i = 0; i < node.LeftNodes.Length; i++)
         {
-            context.StackPosition = (byte)(startPosition + i + 1);
+            context.StackPosition = (ushort)(startPosition + i + 1);
             var leftNode = node.LeftNodes[i];
 
             switch (leftNode)
             {
                 case IdentifierNode identifier:
+                {
+                    if (context.TryGetLocalVariable(identifier.Name, out var variable))
                     {
-                        if (context.TryGetLocalVariable(identifier.Name, out var variable))
-                        {
-                            // assign local variable
-                            context.PushInstruction(Instruction.Move(variable.RegisterIndex, (ushort)(context.StackPosition - 1)), node.Position, true);
-                        }
-                        else if (context.Function.TryGetUpValue(identifier.Name, out var upValue))
-                        {
-                            // assign upvalue
-                            context.PushInstruction(Instruction.SetUpVal((byte)(context.StackPosition - 1), (ushort)upValue.Id), node.Position);
-                        }
-                        else if (context.TryGetLocalVariable("_ENV".AsMemory(), out variable))
-                        {
-                            // assign env element
-                            var index = context.Function.GetConstantIndex(identifier.Name.ToString()) + 256;
-                            context.PushInstruction(Instruction.SetTable(variable.RegisterIndex, (ushort)index, (ushort)(context.StackPosition - 1)), node.Position);
-                        }
-                        else
-                        {
-                            // assign global variable
-                            var index = context.Function.GetConstantIndex(identifier.Name.ToString()) + 256;
-                            context.PushInstruction(Instruction.SetTabUp(0, (ushort)index, (ushort)(context.StackPosition - 1)), node.Position);
-                        }
+                        // assign local variable
+                        context.PushInstruction(Instruction.Move(variable.RegisterIndex, (ushort)(context.StackPosition - 1)), node.Position, true);
                     }
-                    break;
+                    else if (context.Function.TryGetUpValue(identifier.Name, out var upValue))
+                    {
+                        // assign upvalue
+                        context.PushInstruction(Instruction.SetUpVal((ushort)(context.StackPosition - 1), (ushort)upValue.Id), node.Position);
+                    }
+                    else if (context.TryGetLocalVariable("_ENV".AsMemory(), out variable))
+                    {
+                        // assign env element
+                        var index = context.Function.GetConstantIndex(identifier.Name.ToString()) + 256;
+                        context.PushInstruction(Instruction.SetTable(variable.RegisterIndex, (ushort)index, (ushort)(context.StackPosition - 1)), node.Position);
+                    }
+                    else
+                    {
+                        // assign global variable
+                        var index = context.Function.GetConstantIndex(identifier.Name.ToString()) + 256;
+                        context.PushInstruction(Instruction.SetTabUp(0, (ushort)index, (ushort)(context.StackPosition - 1)), node.Position);
+                    }
+                }
+                break;
                 case TableIndexerAccessExpressionNode tableIndexer:
-                    {
-                        var valueIndex = context.StackPosition - 1;
-                        tableIndexer.TableNode.Accept(this, context);
-                        var tableIndex = context.StackPosition - 1;
-                        tableIndexer.KeyNode.Accept(this, context);
-                        var keyIndex = context.StackPosition - 1;
-                        context.PushInstruction(Instruction.SetTable((byte)tableIndex, (ushort)keyIndex, (ushort)valueIndex), node.Position);
-                    }
-                    break;
+                {
+                    var valueIndex = context.StackPosition - 1;
+                    tableIndexer.TableNode.Accept(this, context);
+                    var tableIndex = context.StackPosition - 1;
+                    tableIndexer.KeyNode.Accept(this, context);
+                    var keyIndex = context.StackPosition - 1;
+                    context.PushInstruction(Instruction.SetTable((ushort)tableIndex, (ushort)keyIndex, (ushort)valueIndex), node.Position);
+                }
+                break;
                 case TableMemberAccessExpressionNode tableMember:
-                    {
-                        var valueIndex = context.StackPosition - 1;
-                        tableMember.TableNode.Accept(this, context);
-                        var tableIndex = context.StackPosition - 1;
-                        var keyIndex = context.Function.GetConstantIndex(tableMember.MemberName) + 256;
-                        context.PushInstruction(Instruction.SetTable((byte)tableIndex, (ushort)keyIndex, (ushort)valueIndex), node.Position);
-                    }
-                    break;
+                {
+                    var valueIndex = context.StackPosition - 1;
+                    tableMember.TableNode.Accept(this, context);
+                    var tableIndex = context.StackPosition - 1;
+                    var keyIndex = context.Function.GetConstantIndex(tableMember.MemberName) + 256;
+                    context.PushInstruction(Instruction.SetTable((ushort)tableIndex, (ushort)keyIndex, (ushort)valueIndex), node.Position);
+                }
+                break;
                 default:
                     throw new LuaParseException(default, default, "An error occurred while parsing the code"); // TODO: add message
             }
@@ -577,7 +602,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         else
         {
             context.PushInstruction(Instruction.Call(r, (ushort)b, (ushort)(resultCount == -1 ? 0 : resultCount + 1)), node.Position);
-            context.StackPosition = (byte)(r + resultCount);
+            context.StackPosition = (ushort)(r + resultCount);
         }
     }
 
@@ -689,7 +714,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
             var parameter = parameters[i];
             funcContext.Scope.AddLocalVariable(parameter.Name, new()
             {
-                RegisterIndex = (byte)(i + (hasSelfParameter ? 1 : 0)),
+                RegisterIndex = (ushort)(i + (hasSelfParameter ? 1 : 0)),
             });
 
             funcContext.Scope.StackPosition++;
@@ -747,7 +772,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
     {
         using var endJumpIndexList = new PooledList<int>(8);
         var hasElse = node.ElseNodes.Length > 0;
-        var stackPositionToClose = (byte)(context.StackPosition + 1);
+        var stackPositionToClose = (ushort)(context.StackPosition + 1);
         // if
         using (var scopeContext = context.CreateChildScope())
         {
@@ -761,7 +786,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                 childNode.Accept(this, scopeContext);
             }
 
-            stackPositionToClose = scopeContext.HasCapturedLocalVariables ? stackPositionToClose : (byte)0;
+            stackPositionToClose = scopeContext.HasCapturedLocalVariables ? stackPositionToClose : (ushort)0;
             if (hasElse)
             {
                 endJumpIndexList.Add(scopeContext.Function.Instructions.Length);
@@ -790,7 +815,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                 childNode.Accept(this, scopeContext);
             }
 
-            stackPositionToClose = scopeContext.HasCapturedLocalVariables ? stackPositionToClose : (byte)0;
+            stackPositionToClose = scopeContext.HasCapturedLocalVariables ? stackPositionToClose : (ushort)0;
             // skip if node doesn't have else statements
             if (hasElse)
             {
@@ -839,7 +864,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         }
 
         CompileConditionNode(node.ConditionNode, scopeContext, true);
-        var a = scopeContext.HasCapturedLocalVariables ? (byte)(stackPosition + 1) : (byte)0;
+        var a = scopeContext.HasCapturedLocalVariables ? (ushort)(stackPosition + 1) : (ushort)0;
         scopeContext.PushInstruction(Instruction.Jmp(a, startIndex - scopeContext.Function.Instructions.Length - 1), node.Position);
         scopeContext.TryPushCloseUpValue(scopeContext.StackPosition, node.Position);
 
@@ -872,7 +897,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         scopeContext.Function.Instructions[conditionIndex].SBx = scopeContext.Function.Instructions.Length - 1 - conditionIndex;
 
         CompileConditionNode(node.ConditionNode, scopeContext, false);
-        var a = scopeContext.HasCapturedLocalVariables ? (byte)(1 + stackPosition) : (byte)0;
+        var a = scopeContext.HasCapturedLocalVariables ? (ushort)(1 + stackPosition) : (ushort)0;
         scopeContext.PushInstruction(Instruction.Jmp(a, conditionIndex - context.Function.Instructions.Length), node.Position);
         scopeContext.TryPushCloseUpValue(scopeContext.StackPosition, node.Position);
 
@@ -916,7 +941,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                 childNode.Accept(this, scopeContext);
             }
 
-            scopeContext.TryPushCloseUpValue((byte)(startPosition + 1), node.Position);
+            scopeContext.TryPushCloseUpValue((ushort)(startPosition + 1), node.Position);
         }
         context.Function.LoopLevel--;
 
@@ -926,7 +951,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         // push ForLoop
         context.PushInstruction(Instruction.ForLoop(startPosition, prepIndex - context.Function.Instructions.Length), node.Position);
 
-        context.Function.ResolveAllBreaks((byte)(startPosition + 1), context.Function.Instructions.Length - 1, scopeContext);
+        context.Function.ResolveAllBreaks((ushort)(startPosition + 1), context.Function.Instructions.Length - 1, scopeContext);
 
         context.StackPosition = startPosition;
 
@@ -947,7 +972,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         context.Function.LoopLevel++;
         using var scopeContext = context.CreateChildScope();
         {
-            scopeContext.StackPosition = (byte)(startPosition + 3 + node.Names.Length);
+            scopeContext.StackPosition = (ushort)(startPosition + 3 + node.Names.Length);
 
             // add local variables
             for (int i = 0; i < node.Names.Length; i++)
@@ -955,7 +980,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                 var name = node.Names[i];
                 scopeContext.AddLocalVariable(name.Name, new()
                 {
-                    RegisterIndex = (byte)(startPosition + 3 + i)
+                    RegisterIndex = (ushort)(startPosition + 3 + i)
                 });
             }
 
@@ -973,9 +998,9 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
 
         // push OP_TFORCALL and OP_TFORLOOP
         context.PushInstruction(Instruction.TForCall(startPosition, (ushort)node.Names.Length), node.Position);
-        context.PushInstruction(Instruction.TForLoop((byte)(startPosition + 2), startJumpIndex - context.Function.Instructions.Length), node.Position);
+        context.PushInstruction(Instruction.TForLoop((ushort)(startPosition + 2), startJumpIndex - context.Function.Instructions.Length), node.Position);
 
-        context.Function.ResolveAllBreaks((byte)(startPosition + 1), context.Function.Instructions.Length - 1, scopeContext);
+        context.Function.ResolveAllBreaks((ushort)(startPosition + 1), context.Function.Instructions.Length - 1, scopeContext);
         context.StackPosition = startPosition;
 
         return true;
@@ -1017,7 +1042,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         return true;
     }
 
-    static byte GetOrLoadIdentifier(ReadOnlyMemory<char> name, ScopeCompilationContext context, SourcePosition sourcePosition, bool dontLoadLocalVariable)
+    static ushort GetOrLoadIdentifier(ReadOnlyMemory<char> name, ScopeCompilationContext context, SourcePosition sourcePosition, bool dontLoadLocalVariable)
     {
         var p = context.StackPosition;
 
@@ -1132,41 +1157,41 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
                     switch (binaryExpression.OperatorType)
                     {
                         case BinaryOperator.Addition:
+                        {
+                            if (leftValue.TryRead<double>(out var d1) && rightValue.TryRead<double>(out var d2))
                             {
-                                if (leftValue.TryRead<double>(out var d1) && rightValue.TryRead<double>(out var d2))
-                                {
-                                    value = d1 + d2;
-                                    return true;
-                                }
+                                value = d1 + d2;
+                                return true;
                             }
-                            break;
+                        }
+                        break;
                         case BinaryOperator.Subtraction:
+                        {
+                            if (leftValue.TryRead<double>(out var d1) && rightValue.TryRead<double>(out var d2))
                             {
-                                if (leftValue.TryRead<double>(out var d1) && rightValue.TryRead<double>(out var d2))
-                                {
-                                    value = d1 - d2;
-                                    return true;
-                                }
+                                value = d1 - d2;
+                                return true;
                             }
-                            break;
+                        }
+                        break;
                         case BinaryOperator.Multiplication:
+                        {
+                            if (leftValue.TryRead<double>(out var d1) && rightValue.TryRead<double>(out var d2))
                             {
-                                if (leftValue.TryRead<double>(out var d1) && rightValue.TryRead<double>(out var d2))
-                                {
-                                    value = d1 * d2;
-                                    return true;
-                                }
+                                value = d1 * d2;
+                                return true;
                             }
-                            break;
+                        }
+                        break;
                         case BinaryOperator.Division:
+                        {
+                            if (leftValue.TryRead<double>(out var d1) && rightValue.TryRead<double>(out var d2) && d2 != 0)
                             {
-                                if (leftValue.TryRead<double>(out var d1) && rightValue.TryRead<double>(out var d2) && d2 != 0)
-                                {
-                                    value = d1 / d2;
-                                    return true;
-                                }
+                                value = d1 / d2;
+                                return true;
                             }
-                            break;
+                        }
+                        break;
                     }
                 }
                 break;
@@ -1194,52 +1219,52 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
             switch (binaryExpression.OperatorType)
             {
                 case BinaryOperator.Equality:
-                    {
-                        var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
-                        var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
-                        context.PushInstruction(Instruction.Eq(falseIsSkip ? (byte)0 : (byte)1, b, c), node.Position);
-                        return;
-                    }
+                {
+                    var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
+                    var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
+                    context.PushInstruction(Instruction.Eq(falseIsSkip ? (ushort)0 : (ushort)1, b, c), node.Position);
+                    return;
+                }
                 case BinaryOperator.Inequality:
-                    {
-                        var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
-                        var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
-                        context.PushInstruction(Instruction.Eq(falseIsSkip ? (byte)1 : (byte)0, b, c), node.Position);
-                        return;
-                    }
+                {
+                    var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
+                    var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
+                    context.PushInstruction(Instruction.Eq(falseIsSkip ? (ushort)1 : (ushort)0, b, c), node.Position);
+                    return;
+                }
                 case BinaryOperator.LessThan:
-                    {
-                        var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
-                        var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
-                        context.PushInstruction(Instruction.Lt(falseIsSkip ? (byte)0 : (byte)1, b, c), node.Position);
-                        return;
-                    }
+                {
+                    var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
+                    var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
+                    context.PushInstruction(Instruction.Lt(falseIsSkip ? (ushort)0 : (ushort)1, b, c), node.Position);
+                    return;
+                }
                 case BinaryOperator.LessThanOrEqual:
-                    {
-                        var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
-                        var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
-                        context.PushInstruction(Instruction.Le(falseIsSkip ? (byte)0 : (byte)1, b, c), node.Position);
-                        return;
-                    }
+                {
+                    var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
+                    var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
+                    context.PushInstruction(Instruction.Le(falseIsSkip ? (ushort)0 : (ushort)1, b, c), node.Position);
+                    return;
+                }
                 case BinaryOperator.GreaterThan:
-                    {
-                        var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
-                        var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
-                        context.PushInstruction(Instruction.Lt(falseIsSkip ? (byte)0 : (byte)1, c, b), node.Position);
-                        return;
-                    }
+                {
+                    var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
+                    var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
+                    context.PushInstruction(Instruction.Lt(falseIsSkip ? (ushort)0 : (ushort)1, c, b), node.Position);
+                    return;
+                }
                 case BinaryOperator.GreaterThanOrEqual:
-                    {
-                        var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
-                        var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
-                        context.PushInstruction(Instruction.Le(falseIsSkip ? (byte)0 : (byte)1, c, b), node.Position);
-                        return;
-                    }
+                {
+                    var b = (ushort)GetRKIndex(binaryExpression.LeftNode, context);
+                    var c = (ushort)GetRKIndex(binaryExpression.RightNode, context);
+                    context.PushInstruction(Instruction.Le(falseIsSkip ? (ushort)0 : (ushort)1, c, b), node.Position);
+                    return;
+                }
             }
         }
 
         node.Accept(this, context);
-        context.PushInstruction(Instruction.Test((byte)(context.StackPosition - 1), falseIsSkip ? (byte)0 : (byte)1), node.Position);
+        context.PushInstruction(Instruction.Test((ushort)(context.StackPosition - 1), falseIsSkip ? (ushort)0 : (ushort)1), node.Position);
     }
 
     void CompileExpressionList(SyntaxNode rootNode, ExpressionNode[] expressions, int minimumCount, ScopeCompilationContext context)
@@ -1284,7 +1309,7 @@ public sealed class LuaCompiler : ISyntaxNodeVisitor<ScopeCompilationContext, bo
         if (varCount > 0 && !isLastFunction)
         {
             context.PushInstruction(Instruction.LoadNil(context.StackPosition, (ushort)varCount), rootNode.Position);
-            context.StackPosition = (byte)(context.StackPosition + varCount);
+            context.StackPosition = (ushort)(context.StackPosition + varCount);
         }
     }
 }

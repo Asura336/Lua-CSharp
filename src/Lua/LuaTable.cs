@@ -19,13 +19,12 @@ public sealed class LuaTable
     readonly LuaValueDictionary dictionary;
     LuaTable? metatable;
 
-    public LuaValue this[LuaValue key]
+    public LuaValue this[in LuaValue key]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            if (key.Type is LuaValueType.Nil) ThrowIndexIsNil();
-
+            ThrowIfIndexIsNil(key);
             if (TryGetInteger(key, out var index))
             {
                 if (index > 0 && index <= array.Length)
@@ -43,18 +42,19 @@ public sealed class LuaTable
         {
             if (key.TryReadNumber(out var d))
             {
-                if (double.IsNaN(d))
-                {
-                    ThrowIndexIsNaN();
-                }
-
+                ThrowIfIndexIsNaN(d);
                 if (MathEx.IsInteger(d))
                 {
-                    var index = (int)d;
-                    if (0 < index && index <= Math.Max(array.Length * 2, 8))
+                    /* 算是 Lua 的一个设计缺陷，数组和字典都使用 Table，但在一些场合下需要让数组退化成字典
+                     * C 的 Lua 实现是散列表，MoonSharp 也使用类似的方案，但这里使用的数组和字典
+                     * 如果添加的键是数字，这里的实现会默认把 Table 当作数组处理，不恰当的赋值下可能让数组扩容到很夸张的地步
+                     * 考虑添加扩展用自定义的列表、集合、字典替代 Lua Table
+                     */
+
+                    int index = (int)d;
+                    if (0 < index && index < Math.Max(array.Length * 2 - 1, 8))
                     {
-                        if (array.Length < index)
-                            EnsureArrayCapacity(index);
+                        if (array.Length < index) { EnsureArrayCapacity(index); }
                         array[index - 1] = value;
                         return;
                     }
@@ -113,11 +113,7 @@ public sealed class LuaTable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ref LuaValue FindValue(LuaValue key)
     {
-        if (key.Type is LuaValueType.Nil)
-        {
-            ThrowIndexIsNil();
-        }
-
+        ThrowIfIndexIsNil(key);
         if (TryGetInteger(key, out var index))
         {
             if (index > 0 && index <= array.Length)
@@ -160,7 +156,7 @@ public sealed class LuaTable
         return value;
     }
 
-    public void Insert(int index, LuaValue value)
+    public void Insert(int index, in LuaValue value)
     {
         if (index <= 0 || index > array.Length + 1)
         {
@@ -182,7 +178,7 @@ public sealed class LuaTable
         array[arrayIndex] = value;
     }
 
-    public bool TryGetNext(LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
+    public bool TryGetNext(in LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
     {
         var index = -1;
         if (key.Type is LuaValueType.Nil)
@@ -249,10 +245,13 @@ public sealed class LuaTable
         var prevLength = array.Length;
         var newLength = array.Length;
         if (newLength == 0) newLength = 8;
+        if (newLength < newCapacity) { newLength = CommonUtils.CeilPow2(newCapacity); }
 
-        while (newLength < newCapacity)
+        const long sizeofLuaVal = 24;
+        const long maxArraySize = 2 * 1024 * 1024 * 1024L;
+        if (newLength * sizeofLuaVal > maxArraySize)
         {
-            newLength *= 2;
+            throw new LuaException($"Too large LuaTable::array, Length={newLength}({newLength * sizeofLuaVal} bytes)");
         }
 
         Array.Resize(ref array, newLength);
@@ -279,7 +278,7 @@ public sealed class LuaTable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static bool TryGetInteger(LuaValue value, out int integer)
+    static bool TryGetInteger(in LuaValue value, out int integer)
     {
         if (value.TryReadNumber(out var num) && MathEx.IsInteger(num))
         {
@@ -291,13 +290,13 @@ public sealed class LuaTable
         return false;
     }
 
-    static void ThrowIndexIsNil()
+    static void ThrowIfIndexIsNil(in LuaValue val)
     {
-        throw new ArgumentException("the table index is nil");
+        if (val.Type == LuaValueType.Nil) { throw new ArgumentException("the table index is nil"); }
     }
 
-    static void ThrowIndexIsNaN()
+    static void ThrowIfIndexIsNaN(double val)
     {
-        throw new ArgumentException("the table index is NaN");
+        if (double.IsNaN(val)) { throw new ArgumentException("the table index is NaN"); }
     }
 }

@@ -1,11 +1,10 @@
-using Lua.Internal;
 using Lua.Runtime;
 
 namespace Lua.CodeAnalysis.Compilation
 {
     public readonly record struct LocalVariableDescription
     {
-        public required byte RegisterIndex { get; init; }
+        public required ushort RegisterIndex { get; init; }
     }
 
     public readonly record struct FunctionDescription
@@ -19,7 +18,7 @@ namespace Lua.CodeAnalysis.Compilation
     {
         public required ReadOnlyMemory<char> Name { get; init; }
         public required int Index { get; init; }
-        public required byte RegisterIndex { get; init; }
+        public required ushort RegisterIndex { get; init; }
     }
 
     public readonly record struct GotoDescription

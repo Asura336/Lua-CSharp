@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using Lua.CodeAnalysis;
 using Lua.Internal;
 
@@ -20,11 +19,15 @@ public class Traceback
             for (var index = stackFrames.Length - 1; index >= 0; index--)
             {
                 LuaFunction lastFunc = index > 0 ? stackFrames[index - 1].Function : RootFunc;
-                var frame = stackFrames[index];
+                ref readonly var frame = ref stackFrames[index];
                 if (lastFunc is Closure closure)
                 {
                     var p = closure.Proto;
-                    return p.SourcePositions[frame.CallerInstructionIndex];
+                    // fix: https://github.com/nuskey8/Lua-CSharp/issues/98
+                    if (frame.CallerInstructionIndex >= 0 && frame.CallerInstructionIndex < p.SourcePositions.Length)
+                    {
+                        return p.SourcePositions[frame.CallerInstructionIndex];
+                    }
                 }
             }
 
@@ -56,7 +59,7 @@ public class Traceback
                 list.AddRange("\t");
                 list.AddRange(root.Name);
                 list.AddRange(":");
-                p.SourcePositions[frame.CallerInstructionIndex].Line.TryFormat(intFormatBuffer, out var charsWritten,provider:CultureInfo.InvariantCulture);
+                p.SourcePositions[frame.CallerInstructionIndex].Line.TryFormat(intFormatBuffer, out var charsWritten, provider: CultureInfo.InvariantCulture);
                 list.AddRange(intFormatBuffer[..charsWritten]);
                 list.AddRange(root == p ? ": in '" : ": in function '");
                 list.AddRange(p.Name);

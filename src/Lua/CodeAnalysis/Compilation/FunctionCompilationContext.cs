@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Lua.Runtime;
 using Lua.Internal;
+using Lua.Runtime;
 
 namespace Lua.CodeAnalysis.Compilation;
 
@@ -68,7 +68,7 @@ public class FunctionCompilationContext : IDisposable
     /// <summary>
     /// Maximum local stack size
     /// </summary>
-    public byte MaxStackPosition { get; set; }
+    public ushort MaxStackPosition { get; set; }
 
     /// <summary>
     /// Chunk name (for debug)
@@ -148,106 +148,114 @@ public class FunctionCompilationContext : IDisposable
                         case OpCode.Div:
                         case OpCode.Mod:
                         case OpCode.Pow:
+
+                        /* 从 https://github.com/nuskey8/Lua-CSharp/pull/107 引入了部分改动
+                         * 试图修复解释器不能正确处理嵌套的 is 和 or 运算符的问题
+                         * 下面这几行加上了也可以通过现有用例，但是不确定会不会有额外影响
+                         * 于是只加了三个逻辑运算符的 case
+                         */
+                        //case OpCode.GetUpVal:
+                        //case OpCode.GetTabUp:
+                        //case OpCode.SetTabUp:
+                        //case OpCode.SetUpVal:
+                        //case OpCode.NewTable:
+                        //case OpCode.Len:
+
+                        case OpCode.Not:
+                        case OpCode.LoadBool when lastInstruction.C == 0:
+                        case OpCode.LoadNil when lastInstruction.B == 0:
+
                         case OpCode.Concat:
-                            {
-                                lastInstruction.A = instruction.A;
-                                incrementStackPosition = false;
-                                return;
-                            }
+                        {
+                            lastInstruction.A = instruction.A;
+                            incrementStackPosition = false;
+                            return;
+                        }
                     }
                 }
                 break;
             case OpCode.GetTable:
+            {
+                // Merge MOVE GetTable
+                if (lastInstruction.OpCode == OpCode.Move && lastLocal != lastInstruction.A)
                 {
-                    // Merge MOVE GetTable
-                    if (lastInstruction.OpCode == OpCode.Move && lastLocal != lastInstruction.A)
+                    if (lastInstruction.A == instruction.B)
                     {
-                        if (lastInstruction.A == instruction.B)
-                        {
-                            lastInstruction = Instruction.GetTable(instruction.A, lastInstruction.B, instruction.C);
-                            instructionPositions[^1] = position;
-                            incrementStackPosition = false;
-                            return;
-                        }
-
+                        lastInstruction = Instruction.GetTable(instruction.A, lastInstruction.B, instruction.C);
+                        instructionPositions[^1] = position;
+                        incrementStackPosition = false;
+                        return;
                     }
-                    break;
+
                 }
+                break;
+            }
             case OpCode.SetTable:
+            {
+                // Merge MOVE SETTABLE
+                if (lastInstruction.OpCode == OpCode.Move && lastLocal != lastInstruction.A)
                 {
-                    // Merge MOVE SETTABLE
-                    if (lastInstruction.OpCode == OpCode.Move && lastLocal != lastInstruction.A)
+                    var lastB = lastInstruction.B;
+                    var lastA = lastInstruction.A;
+                    if (lastB < 255 && lastA == instruction.A)
                     {
-                        var lastB = lastInstruction.B;
-                        var lastA = lastInstruction.A;
-                        if (lastB < 255 && lastA == instruction.A)
+                        // Merge MOVE MOVE SETTABLE
+                        if (instructions.Length > 2)
                         {
-                            // Merge MOVE MOVE SETTABLE
-                            if (instructions.Length > 2)
-                            {
-                                ref var last2Instruction = ref instructions.AsSpan()[^2];
-                                var last2A = last2Instruction.A;
-                                if (last2Instruction.OpCode == OpCode.Move && lastLocal != last2A && instruction.C == last2A)
-                                {
-                                    last2Instruction = Instruction.SetTable((byte)(lastB), instruction.B, last2Instruction.B);
-                                    instructions.RemoveAtSwapback(instructions.Length - 1);
-                                    instructionPositions.RemoveAtSwapback(instructionPositions.Length - 1);
-                                    instructionPositions[^1] = position;
-                                    incrementStackPosition = false;
-                                    return;
-                                }
-                            }
-                            lastInstruction = Instruction.SetTable((byte)(lastB), instruction.B, instruction.C);
-                            instructionPositions[^1] = position;
-                            incrementStackPosition = false;
-                            return;
-                        }
-
-                        if (lastA == instruction.C)
-                        {
-                            lastInstruction = Instruction.SetTable(instruction.A, instruction.B, lastB);
-                            instructionPositions[^1] = position;
-                            incrementStackPosition = false;
-                            return;
-                        }
-                    }
-                    else if (lastInstruction.OpCode == OpCode.GetTabUp && instructions.Length >= 2)
-                    {
-                        ref var last2Instruction = ref instructions[^2];
-                        var last2OpCode = last2Instruction.OpCode;
-                        if (last2OpCode is OpCode.LoadK or OpCode.Move)
-                        {
-
+                            ref var last2Instruction = ref instructions.AsSpan()[^2];
                             var last2A = last2Instruction.A;
-                            if (last2A != lastLocal && instruction.C == last2A)
+                            if (last2Instruction.OpCode == OpCode.Move && lastLocal != last2A && instruction.C == last2A)
                             {
-                                var c = last2OpCode == OpCode.LoadK ? last2Instruction.Bx + 256 : last2Instruction.B;
-                                last2Instruction = lastInstruction;
-                                lastInstruction = instruction with { C = (ushort)c };
-                                instructionPositions[^2] = instructionPositions[^1];
+                                last2Instruction = Instruction.SetTable(lastB, instruction.B, last2Instruction.B);
+                                instructions.RemoveAtSwapback(instructions.Length - 1);
+                                instructionPositions.RemoveAtSwapback(instructionPositions.Length - 1);
                                 instructionPositions[^1] = position;
                                 incrementStackPosition = false;
                                 return;
                             }
                         }
+                        lastInstruction = Instruction.SetTable(lastB, instruction.B, instruction.C);
+                        instructionPositions[^1] = position;
+                        incrementStackPosition = false;
+                        return;
                     }
-                    break;
+
+                    if (lastA == instruction.C)
+                    {
+                        lastInstruction = Instruction.SetTable(instruction.A, instruction.B, lastB);
+                        instructionPositions[^1] = position;
+                        incrementStackPosition = false;
+                        return;
+                    }
                 }
+                else if (lastInstruction.OpCode == OpCode.GetTabUp && instructions.Length >= 2)
+                {
+                    ref var last2Instruction = ref instructions[^2];
+                    var last2OpCode = last2Instruction.OpCode;
+                    if (last2OpCode is OpCode.LoadK or OpCode.Move)
+                    {
+
+                        var last2A = last2Instruction.A;
+                        if (last2A != lastLocal && instruction.C == last2A)
+                        {
+                            var c = last2OpCode == OpCode.LoadK ? last2Instruction.Bx + 256 : last2Instruction.B;
+                            last2Instruction = lastInstruction;
+                            lastInstruction = instruction with { C = (ushort)c };
+                            instructionPositions[^2] = instructionPositions[^1];
+                            instructionPositions[^1] = position;
+                            incrementStackPosition = false;
+                            return;
+                        }
+                    }
+                }
+                break;
+            }
             case OpCode.Unm:
             case OpCode.Not:
             case OpCode.Len:
                 if (lastInstruction.OpCode == OpCode.Move && lastLocal != lastInstruction.A && lastInstruction.A == instruction.B)
                 {
-                    lastInstruction = instruction with { B = lastInstruction.B }; ;
-                    instructionPositions[^1] = position;
-                    incrementStackPosition = false;
-                    return;
-                }
-                break;
-            case OpCode.Return:
-                if (lastInstruction.OpCode == OpCode.Move && instruction.B == 2 && lastInstruction.B < 256)
-                {
-                    lastInstruction = instruction with { A = (byte)lastInstruction.B };
+                    lastInstruction = instruction with { B = lastInstruction.B };
                     instructionPositions[^1] = position;
                     incrementStackPosition = false;
                     return;
@@ -369,10 +377,13 @@ public class FunctionCompilationContext : IDisposable
         breakQueue.Add(description);
     }
 
-    public void ResolveAllBreaks(byte startPosition, int endPosition, ScopeCompilationContext loopScope)
+    public void ResolveAllBreaks(ushort startPosition, int endPosition, ScopeCompilationContext loopScope)
     {
-        foreach (var description in breakQueue.AsSpan())
+        var breakQueueSpan = breakQueue.AsSpan();
+        int len = breakQueueSpan.Length;
+        for (int i = 0; i < len; i++)
         {
+            ref readonly var description = ref breakQueueSpan[i];
             ref var instruction = ref Instructions[description.Index];
             if (loopScope.HasCapturedLocalVariables)
             {

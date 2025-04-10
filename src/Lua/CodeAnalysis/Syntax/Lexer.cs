@@ -325,6 +325,11 @@ public ref struct Lexer
                 {
                     Advance(1);
                     if (span.Length <= offset) break;
+                    if (span[offset] == '\r')
+                    {
+                        if (span.Length <= offset + 1) continue;
+                        if (span[offset + 1] == '\n') Advance(1);
+                    }
                 }
                 else if (c == quote)
                 {

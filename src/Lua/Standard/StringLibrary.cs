@@ -28,7 +28,7 @@ public sealed class StringLibrary
 
     public readonly LuaFunction[] Functions;
 
-    public ValueTask<int> Byte(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Byte(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
         var i = context.HasArgument(1)
@@ -50,7 +50,7 @@ public sealed class StringLibrary
         return new(span.Length);
     }
 
-    public ValueTask<int> Char(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Char(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         if (context.ArgumentCount == 0)
         {
@@ -76,7 +76,7 @@ public sealed class StringLibrary
         throw new NotSupportedException("stirng.dump is not supported");
     }
 
-    public ValueTask<int> Find(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Find(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
         var pattern = context.GetArgument<string>(1);
@@ -146,7 +146,7 @@ public sealed class StringLibrary
         }
     }
 
-    public async ValueTask<int> Format(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static async ValueTask<int> Format(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var format = context.GetArgument<string>(0);
 
@@ -422,7 +422,7 @@ public sealed class StringLibrary
         return 1;
     }
 
-    public ValueTask<int> GMatch(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> GMatch(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
         var pattern = context.GetArgument<string>(1);
@@ -464,7 +464,7 @@ public sealed class StringLibrary
         return new(1);
     }
 
-    public async ValueTask<int> GSub(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static async ValueTask<int> GSub(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
         var pattern = context.GetArgument<string>(1);
@@ -557,21 +557,21 @@ public sealed class StringLibrary
         return 1;
     }
 
-    public ValueTask<int> Len(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Len(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
         buffer.Span[0] = s.Length;
         return new(1);
     }
 
-    public ValueTask<int> Lower(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Lower(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
         buffer.Span[0] = s.ToLower();
         return new(1);
     }
 
-    public ValueTask<int> Rep(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Rep(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
         var n_arg = context.GetArgument<double>(1);
@@ -597,7 +597,7 @@ public sealed class StringLibrary
         return new(1);
     }
 
-    public ValueTask<int> Reverse(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Reverse(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
         using var strBuffer = new PooledArray<char>(s.Length);
@@ -608,7 +608,7 @@ public sealed class StringLibrary
         return new(1);
     }
 
-    public ValueTask<int> Sub(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Sub(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
         var i = context.GetArgument<double>(1);
@@ -623,7 +623,7 @@ public sealed class StringLibrary
         return new(1);
     }
 
-    public ValueTask<int> Upper(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Upper(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var s = context.GetArgument<string>(0);
         buffer.Span[0] = s.ToUpper();

@@ -26,13 +26,13 @@ public sealed class OperatingSystemLibrary
 
     public readonly LuaFunction[] Functions;
 
-    public ValueTask<int> Clock(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Clock(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         buffer.Span[0] = DateTimeHelper.GetUnixTime(DateTime.UtcNow, Process.GetCurrentProcess().StartTime);
         return new(1);
     }
 
-    public ValueTask<int> Date(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Date(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var format = context.HasArgument(0)
             ? context.GetArgument<string>(0).AsSpan()
@@ -84,7 +84,7 @@ public sealed class OperatingSystemLibrary
         return new(1);
     }
 
-    public ValueTask<int> DiffTime(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> DiffTime(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var t2 = context.GetArgument<double>(0);
         var t1 = context.GetArgument<double>(1);
@@ -92,7 +92,7 @@ public sealed class OperatingSystemLibrary
         return new(1);
     }
 
-    public ValueTask<int> Execute(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Execute(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         // os.execute(command) is not supported
 
@@ -107,7 +107,7 @@ public sealed class OperatingSystemLibrary
         }
     }
 
-    public ValueTask<int> Exit(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Exit(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         // Ignore 'close' parameter
 
@@ -136,14 +136,14 @@ public sealed class OperatingSystemLibrary
         return new(0);
     }
 
-    public ValueTask<int> GetEnv(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> GetEnv(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var variable = context.GetArgument<string>(0);
         buffer.Span[0] = Environment.GetEnvironmentVariable(variable) ?? LuaValue.Nil;
         return new(1);
     }
 
-    public ValueTask<int> Remove(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Remove(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var fileName = context.GetArgument<string>(0);
         try
@@ -161,7 +161,7 @@ public sealed class OperatingSystemLibrary
         }
     }
 
-    public ValueTask<int> Rename(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Rename(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var oldName = context.GetArgument<string>(0);
         var newName = context.GetArgument<string>(1);
@@ -180,7 +180,7 @@ public sealed class OperatingSystemLibrary
         }
     }
 
-    public ValueTask<int> SetLocale(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> SetLocale(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         // os.setlocale is not supported (always return nil)
 
@@ -188,7 +188,7 @@ public sealed class OperatingSystemLibrary
         return new(1);
     }
 
-    public ValueTask<int> Time(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Time(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         if (context.HasArgument(0))
         {
@@ -204,7 +204,7 @@ public sealed class OperatingSystemLibrary
         }
     }
 
-    public ValueTask<int> TmpName(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> TmpName(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         buffer.Span[0] = Path.GetTempFileName();
         return new(1);

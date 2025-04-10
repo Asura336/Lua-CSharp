@@ -19,14 +19,11 @@ public sealed class LuaStack(int initialSize = 256)
         Resize(ref array, newSize);
         return;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void Resize(ref LuaValue[] array, int newSize)
         {
             var size = array.Length;
-            while (size < newSize)
-            {
-                size *= 2;
-            }
-
+            if (size < newSize) { size = CommonUtils.CeilPow2(newSize); }
             Array.Resize(ref array, size);
         }
     }

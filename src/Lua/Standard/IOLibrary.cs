@@ -24,7 +24,7 @@ public sealed class IOLibrary
 
     public readonly LuaFunction[] Functions;
 
-    public ValueTask<int> Close(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Close(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var file = context.HasArgument(0)
             ? context.GetArgument<FileHandle>(0)
@@ -45,7 +45,7 @@ public sealed class IOLibrary
         }
     }
 
-    public ValueTask<int> Flush(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Flush(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var file = context.State.Environment["io"].Read<LuaTable>()["stdout"].Read<FileHandle>();
 
@@ -64,7 +64,7 @@ public sealed class IOLibrary
         }
     }
 
-    public ValueTask<int> Input(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Input(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var io = context.State.Environment["io"].Read<LuaTable>();
 
@@ -91,7 +91,7 @@ public sealed class IOLibrary
         }
     }
 
-    public ValueTask<int> Lines(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Lines(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         if (context.ArgumentCount == 0)
         {
@@ -131,7 +131,7 @@ public sealed class IOLibrary
         }
     }
 
-    public ValueTask<int> Open(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Open(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var fileName = context.GetArgument<string>(0);
         var mode = context.HasArgument(1)
@@ -142,7 +142,7 @@ public sealed class IOLibrary
         return new(resultCount);
     }
 
-    public ValueTask<int> Output(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Output(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var io = context.State.Environment["io"].Read<LuaTable>();
 
@@ -169,14 +169,14 @@ public sealed class IOLibrary
         }
     }
 
-    public ValueTask<int> Read(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Read(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var file = context.State.Environment["io"].Read<LuaTable>()["stdio"].Read<FileHandle>();
         var resultCount = IOHelper.Read(context.State, file, "read", 0, context.Arguments, buffer, false);
         return new(resultCount);
     }
 
-    public ValueTask<int> Type(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Type(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument(0);
 
@@ -192,7 +192,7 @@ public sealed class IOLibrary
         return new(1);
     }
 
-    public ValueTask<int> Write(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Write(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var file = context.State.Environment["io"].Read<LuaTable>()["stdout"].Read<FileHandle>();
         var resultCount = IOHelper.Write(file, "write", context, buffer);

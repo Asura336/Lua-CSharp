@@ -47,28 +47,28 @@ public sealed class MathematicsLibrary
         public Random Random { get; } = random;
     }
 
-    public ValueTask<int> Abs(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Abs(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Abs(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Acos(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Acos(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Acos(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Asin(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Asin(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Asin(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Atan2(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Atan2(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
@@ -77,56 +77,56 @@ public sealed class MathematicsLibrary
         return new(1);
     }
 
-    public ValueTask<int> Atan(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Atan(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Atan(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Ceil(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Ceil(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Ceiling(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Cos(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Cos(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Cos(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Cosh(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Cosh(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Cosh(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Deg(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Deg(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = arg0 * (180.0 / Math.PI);
         return new(1);
     }
 
-    public ValueTask<int> Exp(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Exp(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Exp(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Floor(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Floor(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Floor(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Fmod(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Fmod(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
@@ -134,7 +134,7 @@ public sealed class MathematicsLibrary
         return new(1);
     }
 
-    public ValueTask<int> Frexp(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Frexp(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
 
@@ -144,7 +144,7 @@ public sealed class MathematicsLibrary
         return new(2);
     }
 
-    public ValueTask<int> Ldexp(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Ldexp(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
@@ -153,7 +153,7 @@ public sealed class MathematicsLibrary
         return new(1);
     }
 
-    public ValueTask<int> Log(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Log(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
 
@@ -170,7 +170,7 @@ public sealed class MathematicsLibrary
         return new(1);
     }
 
-    public ValueTask<int> Max(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Max(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var x = context.GetArgument<double>(0);
         for (int i = 1; i < context.ArgumentCount; i++)
@@ -183,7 +183,7 @@ public sealed class MathematicsLibrary
         return new(1);
     }
 
-    public ValueTask<int> Min(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Min(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var x = context.GetArgument<double>(0);
         for (int i = 1; i < context.ArgumentCount; i++)
@@ -196,7 +196,7 @@ public sealed class MathematicsLibrary
         return new(1);
     }
 
-    public ValueTask<int> Modf(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Modf(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         var (i, f) = MathEx.Modf(arg0);
@@ -205,7 +205,7 @@ public sealed class MathematicsLibrary
         return new(2);
     }
 
-    public ValueTask<int> Pow(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Pow(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         var arg1 = context.GetArgument<double>(1);
@@ -214,14 +214,14 @@ public sealed class MathematicsLibrary
         return new(1);
     }
 
-    public ValueTask<int> Rad(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Rad(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = arg0 * (Math.PI / 180.0);
         return new(1);
     }
 
-    public ValueTask<int> Random(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Random(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var rand = context.State.Environment[RandomInstanceKey].Read<RandomUserData>().Random;
 
@@ -244,42 +244,42 @@ public sealed class MathematicsLibrary
         return new(1);
     }
 
-    public ValueTask<int> RandomSeed(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> RandomSeed(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         context.State.Environment[RandomInstanceKey] = new(new RandomUserData(new Random((int)BitConverter.DoubleToInt64Bits(arg0))));
         return new(0);
     }
 
-    public ValueTask<int> Sin(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Sin(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Sin(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Sinh(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Sinh(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Sinh(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Sqrt(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Sqrt(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Sqrt(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Tan(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Tan(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Tan(arg0);
         return new(1);
     }
 
-    public ValueTask<int> Tanh(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Tanh(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<double>(0);
         buffer.Span[0] = Math.Tanh(arg0);

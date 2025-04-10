@@ -44,7 +44,7 @@ public sealed class TableLibrary
         MaxStackPosition = 2,
     };
 
-    public ValueTask<int> Concat(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Concat(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1)
@@ -57,7 +57,7 @@ public sealed class TableLibrary
             ? (long)context.GetArgument<double>(3)
             : arg0.ArrayLength;
 
-        var builder = new ValueStringBuilder(512);
+        using var builder = new ValueStringBuilder(512);
 
         for (long i = arg2; i <= arg3; i++)
         {
@@ -83,7 +83,7 @@ public sealed class TableLibrary
         return new(1);
     }
 
-    public ValueTask<int> Insert(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Insert(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var table = context.GetArgument<LuaTable>(0);
 
@@ -108,7 +108,7 @@ public sealed class TableLibrary
         return new(0);
     }
 
-    public ValueTask<int> Pack(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Pack(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var table = new LuaTable(context.ArgumentCount, 1);
 
@@ -123,7 +123,7 @@ public sealed class TableLibrary
         return new(1);
     }
 
-    public ValueTask<int> Remove(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Remove(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var table = context.GetArgument<LuaTable>(0);
         var n_arg = context.HasArgument(1)
@@ -154,7 +154,7 @@ public sealed class TableLibrary
         return new(1);
     }
 
-    public async ValueTask<int> Sort(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static async ValueTask<int> Sort(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1)
@@ -178,7 +178,7 @@ public sealed class TableLibrary
         }
     }
 
-    async ValueTask QuickSortAsync(LuaFunctionExecutionContext context, Memory<LuaValue> memory, int low, int high, LuaFunction comparer, CancellationToken cancellationToken)
+    static async ValueTask QuickSortAsync(LuaFunctionExecutionContext context, Memory<LuaValue> memory, int low, int high, LuaFunction comparer, CancellationToken cancellationToken)
     {
         if (low < high)
         {
@@ -188,7 +188,7 @@ public sealed class TableLibrary
         }
     }
 
-    async ValueTask<int> PartitionAsync(LuaFunctionExecutionContext context, Memory<LuaValue> memory, int low, int high, LuaFunction comparer, CancellationToken cancellationToken)
+    static async ValueTask<int> PartitionAsync(LuaFunctionExecutionContext context, Memory<LuaValue> memory, int low, int high, LuaFunction comparer, CancellationToken cancellationToken)
     {
         using var methodBuffer = new PooledArray<LuaValue>(1);
 
@@ -217,12 +217,12 @@ public sealed class TableLibrary
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void Swap(Span<LuaValue> span, int i, int j)
+    static void Swap(Span<LuaValue> span, int i, int j)
     {
         (span[i], span[j]) = (span[j], span[i]);
     }
 
-    public ValueTask<int> Unpack(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Unpack(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaTable>(0);
         var arg1 = context.HasArgument(1)

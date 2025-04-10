@@ -18,27 +18,27 @@ public sealed class CoroutineLibrary
 
     public readonly LuaFunction[] Functions;
 
-    public ValueTask<int> Create(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Create(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaFunction>(0);
         buffer.Span[0] = new LuaCoroutine(arg0, true);
         return new(1);
     }
 
-    public ValueTask<int> Resume(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Resume(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var thread = context.GetArgument<LuaThread>(0);
         return thread.ResumeAsync(context, buffer, cancellationToken);
     }
 
-    public ValueTask<int> Running(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Running(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         buffer.Span[0] = context.Thread;
         buffer.Span[1] = context.Thread == context.State.MainThread;
         return new(2);
     }
 
-    public ValueTask<int> Status(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Status(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var thread = context.GetArgument<LuaThread>(0);
         buffer.Span[0] = thread.GetStatus() switch
@@ -52,7 +52,7 @@ public sealed class CoroutineLibrary
         return new(1);
     }
 
-    public ValueTask<int> Wrap(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Wrap(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         var arg0 = context.GetArgument<LuaFunction>(0);
         var thread = new LuaCoroutine(arg0, false);
@@ -92,7 +92,7 @@ public sealed class CoroutineLibrary
         return new(1);
     }
 
-    public ValueTask<int> Yield(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
+    public static ValueTask<int> Yield(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
         return context.Thread.YieldAsync(context, buffer, cancellationToken);
     }
