@@ -19,10 +19,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
 
-    <None Include="..\Lua.SourceGenerator\bin\$(Configuration)\netstandard2.0\Lua.SourceGenerator.dll"
-          PackagePath="analyzers\dotnet\cs"
-          Pack="true"
-          Visible="false" />
+    <None Include="..\Lua.SourceGenerator\bin\$(Configuration)\netstandard2.0\Lua.SourceGenerator.dll" PackagePath="analyzers\dotnet\cs" Pack="true" Visible="false" />
   </ItemGroup>
 
   <ItemGroup Condition="$(TargetFramework) == 'netstandard2.1'">
@@ -36,9 +33,7 @@
   </ItemGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\Lua.SourceGenerator\Lua.SourceGenerator.csproj"
-      OutputItemType="Analyzer"
-      ReferenceOutputAssembly="false"/>
+    <ProjectReference Include="..\Lua.SourceGenerator\Lua.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

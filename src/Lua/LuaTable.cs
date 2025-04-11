@@ -3,7 +3,7 @@ using Lua.Internal;
 
 namespace Lua;
 
-public sealed class LuaTable
+public sealed class LuaTable : ILuaValueSequence
 {
     public LuaTable() : this(8, 8)
     {
@@ -65,10 +65,10 @@ public sealed class LuaTable
         }
     }
 
-    public int HashMapCount
-    {
-        get => dictionary.Count - dictionary.NilCount;
-    }
+    //public int HashMapCount
+    //{
+    //    get => dictionary.Count - dictionary.NilCount;
+    //}
 
     public int ArrayLength
     {
@@ -90,7 +90,7 @@ public sealed class LuaTable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool TryGetValue(LuaValue key, out LuaValue value)
+    public bool TryGetValue(in LuaValue key, out LuaValue value)
     {
         if (key.Type is LuaValueType.Nil)
         {
@@ -111,7 +111,7 @@ public sealed class LuaTable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ref LuaValue FindValue(LuaValue key)
+    internal ref LuaValue FindValue(in LuaValue key)
     {
         ThrowIfIndexIsNil(key);
         if (TryGetInteger(key, out var index))
@@ -125,21 +125,21 @@ public sealed class LuaTable
         return ref dictionary.FindValue(key, out _);
     }
 
-    public bool ContainsKey(LuaValue key)
-    {
-        if (key.Type is LuaValueType.Nil)
-        {
-            return false;
-        }
+    //public bool ContainsKey(in LuaValue key)
+    //{
+    //    if (key.Type is LuaValueType.Nil)
+    //    {
+    //        return false;
+    //    }
 
-        if (TryGetInteger(key, out var index))
-        {
-            return index > 0 && index <= array.Length &&
-                   array[index - 1].Type != LuaValueType.Nil;
-        }
+    //    if (TryGetInteger(key, out var index))
+    //    {
+    //        return index > 0 && index <= array.Length &&
+    //               array[index - 1].Type != LuaValueType.Nil;
+    //    }
 
-        return dictionary.TryGetValue(key, out var value) && value.Type is not LuaValueType.Nil;
-    }
+    //    return dictionary.TryGetValue(key, out var value) && value.Type is not LuaValueType.Nil;
+    //}
 
     public LuaValue RemoveAt(int index)
     {

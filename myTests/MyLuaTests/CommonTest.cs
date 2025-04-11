@@ -1,4 +1,5 @@
 ﻿using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Lua;
 using Lua.CodeAnalysis.Syntax;
@@ -710,7 +711,7 @@ end
             await ShowCompileInfo(lua, code_short, "code-short");
             await ShowCompileInfo(lua, code_dummy, "very-big");
         }
-        static async Task ShowCompileInfo(LuaState lua, string code, string chunkName)
+        static async ValueTask ShowCompileInfo(LuaState lua, string code, string chunkName)
         {
             Console.WriteLine($"Begin {chunkName}");
             var syntaxTree = LuaSyntaxTree.Parse(code, chunkName);
@@ -738,8 +739,14 @@ end
 
             Console.WriteLine($"End {chunkName}");
         }
+        static async ValueTask ShowCompileInfo(string code, [CallerMemberName] string chunkName = "undefined")
+        {
+            var lua = LuaState.Create();
+            lua.OpenStandardLibraries();
+            await ShowCompileInfo(lua, code, chunkName);
+        }
 
-        static async ValueTask SimpleRunLua(string code, string chunkName)
+        static async ValueTask SimpleRunLua(string code, [CallerMemberName] string chunkName = "undefined")
         {
             var lua = LuaState.Create();
             lua.OpenStandardLibraries();
@@ -794,5 +801,95 @@ test_local(bodies, len)
 
 print"OK"
 """, "test_or_1");
+
+        [TestMethod]
+        public async ValueTask Test_MultiAssign() => await SimpleRunLua("""
+local a = {1, 2}
+
+-- 将导致异常
+-- https://github.com/nuskey8/Lua-CSharp/issues/81
+--a[2] , a[1] = a[1], a[2]
+
+-- common swap
+local t = a[2]
+a[2] = a[1]
+a[1] = t
+
+for i, v in ipairs(a) do
+    print(i, v)
+end
+
+assert(a[1] == 2)
+assert(a[2] == 1)
+
+""");
+        [TestMethod]
+        public async ValueTask Test_MultiAssign1() => await ShowCompileInfo("""
+local a = {1, 2}
+
+-- 将导致异常，解释器无法正确处理引用？
+-- https://github.com/nuskey8/Lua-CSharp/issues/81
+a[2] , a[1] = a[1], a[2]
+
+assert(a[1] == 2)
+assert(a[2] == 1)
+""");
+        [TestMethod]
+        public async ValueTask Test_MultiAssign2() => await ShowCompileInfo("""
+local a = 1
+local b = 2
+
+-- 普通的变量交换没有问题
+a, b = b, a
+
+assert(a == 2)
+assert(b == 1)
+""");
+        [TestMethod]
+        public async ValueTask Test_MultiAssign3() => await ShowCompileInfo("""
+local a = { }
+
+-- 解释器无法正确处理左值是表引用的情况
+a[1], a[2], a[3], a[4] = 1, 2, 3, 4
+
+for i, v in ipairs(a) do
+    print(i, v)
+end
+
+assert(a[1] == 1)
+assert(a[2] == 2)
+assert(a[3] == 3)
+assert(a[4] == 4)
+
+""");
+
+        [TestMethod]
+        public async ValueTask Test_Method() => await ShowCompileInfo("""
+-- 定义矩形类
+Rectangle = {area = 1919810, length = 114, breadth = 514}
+
+-- 创建矩形对象的构造函数
+function Rectangle:new(o, length, breadth)
+  o = o or {}  -- 如果未传入对象，创建一个新的空表
+  setmetatable(o, self)  -- 设置元表，使其继承 Rectangle 的方法
+  self.__index = self  -- 确保在访问时能找到方法和属性
+  o.length = length or 0  -- 设置长度，默认为 0
+  o.breadth = breadth or 0  -- 设置宽度，默认为 0
+  o.area = o.length * o.breadth  -- 计算面积
+  return o
+end
+
+-- 打印矩形的面积
+function Rectangle:printArea()
+  print("矩形面积为 ", self.area)
+end
+
+-- 运行实例：
+local rect1 = Rectangle:new(nil, 5, 10)  -- 创建一个长为 5，宽为 10 的矩形
+rect1:printArea()  -- 输出 "矩形面积为 50"
+
+local rect2 = Rectangle:new(nil, 7, 3)  -- 创建一个长为 7，宽为 3 的矩形
+rect2:printArea()  -- 输出 "矩形面积为 21"
+""");
     }
 }

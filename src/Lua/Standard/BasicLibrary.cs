@@ -38,7 +38,7 @@ public sealed class BasicLibrary
 
         IPairsIterator = new("iterator", (context, buffer, cancellationToken) =>
         {
-            var table = context.GetArgument<LuaTable>(0);
+            var table = context.GetArgument<ILuaValueSequence>(0);
             var i = context.GetArgument<double>(1);
 
             i++;
@@ -113,7 +113,7 @@ public sealed class BasicLibrary
     {
         var arg0 = context.GetArgument(0);
 
-        if (arg0.TryRead<LuaTable>(out var table))
+        if (arg0.TryRead<ILuaValueSequence>(out var table))
         {
             if (table.Metatable == null)
             {
@@ -138,7 +138,7 @@ public sealed class BasicLibrary
 
     public ValueTask<int> IPairs(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument<ILuaValueSequence>(0);
 
         // If table has a metamethod __ipairs, calls it with table as argument and returns the first three results from the call.
         if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.IPairs, out var metamethod))
@@ -152,7 +152,7 @@ public sealed class BasicLibrary
         }
 
         buffer.Span[0] = IPairsIterator;
-        buffer.Span[1] = arg0;
+        buffer.Span[1] = arg0.ToLuaValue();
         buffer.Span[2] = 0;
         return new(3);
     }
@@ -225,7 +225,7 @@ public sealed class BasicLibrary
 
     public static ValueTask<int> Next(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument<ILuaValueSequence>(0);
         var arg1 = context.HasArgument(1) ? context.Arguments[1] : LuaValue.Nil;
 
         if (arg0.TryGetNext(arg1, out var kv))
@@ -243,7 +243,7 @@ public sealed class BasicLibrary
 
     public ValueTask<int> Pairs(LuaFunctionExecutionContext context, Memory<LuaValue> buffer, CancellationToken cancellationToken)
     {
-        var arg0 = context.GetArgument<LuaTable>(0);
+        var arg0 = context.GetArgument<ILuaValueSequence>(0);
 
         // If table has a metamethod __pairs, calls it with table as argument and returns the first three results from the call.
         if (arg0.Metatable != null && arg0.Metatable.TryGetValue(Metamethods.Pairs, out var metamethod))
@@ -257,7 +257,7 @@ public sealed class BasicLibrary
         }
 
         buffer.Span[0] = PairsIterator;
-        buffer.Span[1] = arg0;
+        buffer.Span[1] = arg0.ToLuaValue();
         buffer.Span[2] = LuaValue.Nil;
         return new(3);
     }
@@ -488,7 +488,7 @@ public sealed class BasicLibrary
             goto END;
         }
 
-    END:
+END:
         if (value != null && double.IsNaN(value.Value))
         {
             value = null;

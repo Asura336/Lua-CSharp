@@ -37,7 +37,7 @@ public struct PooledArray<T>(int sizeHint) : IDisposable
         array = null;
     }
 
-    void ThrowIfDisposed()
+    readonly void ThrowIfDisposed()
     {
         if (array == null)
         {

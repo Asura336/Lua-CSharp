@@ -35,7 +35,7 @@ public sealed class LuaStack(int initialSize = 256)
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Push(LuaValue value)
+    public void Push(in LuaValue value)
     {
         EnsureCapacity(top + 1);
         array[top] = value;

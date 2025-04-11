@@ -23,7 +23,7 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
             }
         }
 
-        readonly StringBuilder buffer = new();
+        readonly StringBuilder buffer = new(512);
         int indentLevel;
         bool isNewLine = true;
 
@@ -90,7 +90,10 @@ public sealed class DisplayStringSyntaxVisitor : ISyntaxNodeVisitor<DisplayStrin
     public bool VisitBinaryExpressionNode(BinaryExpressionNode node, Context context)
     {
         node.LeftNode.Accept(this, context);
-        context.Append($" {node.OperatorType.ToDisplayString()} ");
+        //context.Append($" {node.OperatorType.ToDisplayString()} ");
+        context.Append(" ");
+        context.Append(node.OperatorType.ToDisplayString());
+        context.Append(" ");
         node.RightNode.Accept(this, context);
         return true;
     }

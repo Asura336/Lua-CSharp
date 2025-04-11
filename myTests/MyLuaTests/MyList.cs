@@ -27,11 +27,31 @@ list = list + 114514
 assert(list.count == 3)
 assert(#list == 3)
 
+local list_1 = __list()
+list_1[#list_1 + 1] = 514
+list = list..list_1..list_1
+
+print('----for loop----')
+-- for loop
 local len = #list
 for i = 1, len do
     print(list[i])
 end
+print('')
 
+print('----for pairs----')
+-- foreach
+for i, v in pairs(list) do
+    print(i, v)
+end
+print('')
+
+print('----for ipairs----')
+-- foreach
+for i, v in ipairs(list) do
+    print(i, v)
+end
+print('')
 """;
 
             var lua = LuaState.Create();
@@ -42,7 +62,7 @@ end
         }
     }
 
-    public sealed class MyList(List<LuaValue> list) : Lua.ILuaUserData
+    public sealed class MyList(List<LuaValue> list) : Lua.ILuaUserData, ILuaValueSequence
     {
         static LuaTable? s_metaTable;
         static MyList()
@@ -50,8 +70,13 @@ end
             s_metaTable = new LuaTable(0, 8);
             s_metaTable[Metamethods.Index] = __func_index;
             s_metaTable[Metamethods.NewIndex] = __func_newindex;
+
+
             s_metaTable[Metamethods.Len] = __func_len;
             s_metaTable[Metamethods.Add] = __func_add;
+            s_metaTable[Metamethods.Concat] = __func_concat;
+
+            //s_metaTable[Metamethods.IPairs] = __func_ipairs;
         }
 
         #region shared methods
@@ -75,7 +100,7 @@ end
             return new(1);
         });
 
-        static readonly LuaFunction __func_len = new LuaFunction("__len", (ctx, buffer, token) =>
+        static readonly LuaFunction __func_len = new("__len", (ctx, buffer, token) =>
         {
             var userData = ctx.GetArgument<MyList>(0);
             buffer.Span[0] = userData.Count;
@@ -190,6 +215,17 @@ end
             return new(0);
         });
 
+        static readonly LuaFunction __func_concat = new("concat", (ctx, buffer, t) =>
+        {
+            // 简单起见，假定参数是 MyList
+            var arg0 = ctx.GetArgument<MyList>(0);
+            var arg1 = ctx.GetArgument<MyList>(1);
+            var res = new MyList(arg0.Count + arg1.Count);
+            res.m_body.AddRange(arg0.m_body);
+            res.m_body.AddRange(arg1.m_body);
+            buffer.Span[0] = res;
+            return new(1);
+        });
         #endregion
 
 
@@ -221,5 +257,46 @@ end
         public LuaTable? Metatable { get => s_metaTable; set => s_metaTable = value; }
 
         public static implicit operator LuaValue(MyList list) => new(list);
+
+        public bool TryGetNext(in LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
+        {
+            pair = default;
+
+            int index;
+            if (key.Type is LuaValueType.Nil)
+            {
+                index = 0;
+                pair = new KeyValuePair<LuaValue, LuaValue>(index, m_body[index]);
+                return true;
+            }
+            else if (!key.TryRead(out index))
+            {
+                return false;
+            }
+
+            index++;
+            if (index >=0 && index < m_body.Count)
+            {
+                pair = new KeyValuePair<LuaValue, LuaValue>(index, m_body[index]);
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool TryGetValue(in LuaValue key, out LuaValue value)
+        {
+            value = default;
+            if (key.TryRead(out int index))
+            {
+                index--;
+                if (index >= 0 && index < m_body.Count)
+                {
+                    value = m_body[index];
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }

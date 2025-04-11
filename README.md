@@ -35,6 +35,69 @@ Lua 在初始化表时如果有很多参数，会尝试将多参数拆分成多�
 
 
 
+## 已知问题（我一时搞不定的）
+
+### 单条语句内对表成员写入多个值
+
+```lua
+local a = { }
+
+a[1], a[2], a[3], a[4] = 1, 2, 3, 4
+
+for i, v in ipairs(a) do
+    print(i, v)
+end
+
+assert(a[1] == 1)  -- 1
+assert(a[2] == 2)  -- table
+assert(a[3] == 3)  -- table
+assert(a[4] == 4)  -- table
+```
+
+
+
+### 在 Lua 端实现类
+
+考虑下述代码：
+
+```Lua
+-- https://www.runoob.com/lua/lua-object-oriented.html
+-- 定义矩形类
+Rectangle = {area = 1919810, length = 114, breadth = 514}
+
+-- 创建矩形对象的构造函数
+function Rectangle:new(o, length, breadth)
+  o = o or {}  -- 如果未传入对象，创建一个新的空表
+  setmetatable(o, self)  -- 设置元表，使其继承 Rectangle 的方法
+  self.__index = self  -- 确保在访问时能找到方法和属性
+  o.length = length or 0  -- 设置长度，默认为 0
+  o.breadth = breadth or 0  -- 设置宽度，默认为 0
+  o.area = o.length * o.breadth  -- 计算面积
+  return o
+end
+
+-- 打印矩形的面积
+function Rectangle:printArea()
+  print("矩形面积为 ", self.area)
+end
+
+-- 运行实例：
+local rect1 = Rectangle:new(nil, 5, 10)  -- 创建一个长为 5，宽为 10 的矩形
+rect1:printArea()  -- 输出 "矩形面积为 50"
+
+local rect2 = Rectangle:new(nil, 7, 3)  -- 创建一个长为 7，宽为 3 的矩形
+rect2:printArea()  -- 输出 "矩形面积为 21"
+```
+
+在 `Lua-CSharp` 中将输出：
+
+```
+矩形面积为 	58596	
+矩形面积为 	58596	
+```
+
+
+
 ## 扩展功能（画饼时间）
 
 就像 `Lua-CSharp` 这个库的初衷是像 `MoonSharp` 一样实现一个便利的互操作脚本接口，提供一些便利的功能可能比兼容原有的 Lua 更有益。

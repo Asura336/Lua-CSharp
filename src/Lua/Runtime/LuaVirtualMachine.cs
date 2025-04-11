@@ -311,9 +311,14 @@ Restart:
                         instruction = instructionRef;
                         stackHead = ref stack.FastGet(frameBase);
                         ref readonly var vc = ref RKC(ref stackHead, ref constHead, instruction);
-                        ref readonly var vb = ref (instruction.OpCode == OpCode.GetTable ? ref Unsafe.Add(ref stackHead, instruction.UIntB) : ref context.Closure.GetUpValueRef(instruction.B));
+                        ref readonly var vb = ref (instruction.OpCode == OpCode.GetTable
+                            ? ref Unsafe.Add(ref stackHead, instruction.UIntB)
+                            : ref context.Closure.GetUpValueRef(instruction.B));
                         var doRestart = false;
-                        if (vb.TryReadTable(out var luaTable) && luaTable.TryGetValue(vc, out var resultValue) || GetTableValueSlowPath(vb, vc, ref context, out resultValue, out doRestart))
+
+                        if (vb.TryReadTable(out var luaTable) &&
+                            luaTable.TryGetValue(vc, out var resultValue) ||
+                            GetTableValueSlowPath(vb, vc, ref context, out resultValue, out doRestart))
                         {
                             if (doRestart) goto Restart;
                             stack.GetWithNotifyTop(instruction.A + frameBase) = resultValue;
@@ -1306,9 +1311,9 @@ End:
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static bool GetTableValueSlowPath(LuaValue table, LuaValue key, ref VirtualMachineExecutionContext context, out LuaValue value, out bool doRestart)
+    static bool GetTableValueSlowPath(in LuaValue targetTable, in LuaValue key, ref VirtualMachineExecutionContext context, out LuaValue value, out bool doRestart)
     {
-        var targetTable = table;
+        var table = targetTable;
         const int MAX_LOOP = 100;
         doRestart = false;
         var skip = targetTable.Type == LuaValueType.Table;
@@ -1350,7 +1355,7 @@ Function:
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static bool CallGetTableFunc(LuaValue table, LuaFunction indexTable, LuaValue key, ref VirtualMachineExecutionContext context, out LuaValue result, out bool doRestart)
+    static bool CallGetTableFunc(in LuaValue table, LuaFunction indexTable, in LuaValue key, ref VirtualMachineExecutionContext context, out LuaValue result, out bool doRestart)
     {
         doRestart = false;
         var stack = context.Stack;
@@ -1386,10 +1391,10 @@ Function:
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static bool SetTableValueSlowPath(LuaValue table, LuaValue key, LuaValue value,
+    static bool SetTableValueSlowPath(in LuaValue targetTable, in LuaValue key, in LuaValue value,
         ref VirtualMachineExecutionContext context, out bool doRestart)
     {
-        var targetTable = table;
+        var table = targetTable;
         const int MAX_LOOP = 100;
         doRestart = false;
         var skip = targetTable.Type == LuaValueType.Table;
@@ -1439,7 +1444,7 @@ Function:
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static bool CallSetTableFunc(LuaValue table, LuaFunction newIndexFunction, LuaValue key, LuaValue value, ref VirtualMachineExecutionContext context, out bool doRestart)
+    static bool CallSetTableFunc(in LuaValue table, LuaFunction newIndexFunction, in LuaValue key, in LuaValue value, ref VirtualMachineExecutionContext context, out bool doRestart)
     {
         doRestart = false;
         var thread = context.Thread;
@@ -1477,7 +1482,7 @@ Function:
 
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static bool ExecuteBinaryOperationMetaMethod(LuaValue vb, LuaValue vc,
+    static bool ExecuteBinaryOperationMetaMethod(in LuaValue vb, in LuaValue vc,
         ref VirtualMachineExecutionContext context, string name, string description, out bool doRestart)
     {
         doRestart = false;
@@ -1526,7 +1531,7 @@ Function:
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    static bool ExecuteUnaryOperationMetaMethod(LuaValue vb, ref VirtualMachineExecutionContext context,
+    static bool ExecuteUnaryOperationMetaMethod(in LuaValue vb, ref VirtualMachineExecutionContext context,
         string name, string description, bool isLen, out bool doRestart)
     {
         doRestart = false;

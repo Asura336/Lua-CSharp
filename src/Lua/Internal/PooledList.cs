@@ -13,8 +13,8 @@ internal ref struct PooledList<T>
         buffer = ArrayPool<T>.Shared.Rent(sizeHint);
     }
 
-    public bool IsDisposed => tail == -1;
-    public int Count => tail;
+    public readonly bool IsDisposed => tail == -1;
+    public readonly int Count => tail;
 
     public void Add(in T item)
     {
@@ -97,7 +97,7 @@ internal ref struct PooledList<T>
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ReadOnlySpan<T> AsSpan()
+    public readonly ReadOnlySpan<T> AsSpan()
     {
         return new ReadOnlySpan<T>(buffer, 0, tail);
     }
