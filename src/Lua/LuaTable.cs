@@ -19,6 +19,11 @@ public sealed class LuaTable : ILuaValueSequence
     readonly LuaValueDictionary dictionary;
     LuaTable? metatable;
 
+    internal LuaValueDictionary Dictionary => dictionary;
+    //private const int MaxArraySize = 1 << 24;
+    private const int MaxDistance = 1 << 12;
+
+
     public LuaValue this[in LuaValue key]
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -52,6 +57,14 @@ public sealed class LuaTable : ILuaValueSequence
                      */
 
                     int index = (int)d;
+
+                    var distance = index - array.Length;
+                    if (distance > MaxDistance)
+                    {
+                        dictionary[key] = value;
+                        return;
+                    }
+
                     if (0 < index && index < Math.Max(array.Length * 2 - 1, 8))
                     {
                         if (array.Length < index) { EnsureArrayCapacity(index); }
@@ -164,6 +177,13 @@ public sealed class LuaTable : ILuaValueSequence
         }
 
         var arrayIndex = index - 1;
+
+        var distance = index - array.Length;
+        if (distance > MaxDistance)
+        {
+            dictionary[index] = value;
+            return;
+        }
 
         if (index > array.Length || array[^1].Type != LuaValueType.Nil)
         {
