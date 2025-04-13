@@ -6,47 +6,11 @@ namespace Lua.Extensions.Collections
     /// <summary>
     /// 标记在 Lua 中使用的列表，索引只能是数字
     /// </summary>
-    public class LuaList : ILuaUserData, IEnumerable<LuaValue>
+    public class LuaList : ILuaUserData, ILuaValueSequence, IEnumerable<LuaValue>
     {
         public const string k_method_count = "count";
 
         static readonly LuaTable s_metatable;
-
-        static bool TryGetPositiveInteger(in LuaValue arg, out int v)
-        {
-            v = -1;
-            return arg.TryReadDouble(out var parsedNumber)
-                 && MathEx.IsInteger(parsedNumber)
-                 && (v = (int)parsedNumber) >= 0;
-        }
-
-        internal static readonly LuaFunction __function_new = new("new", (ctx, buffer, t) =>
-        {
-            if (ctx.ArgumentCount == 0)
-            {
-                buffer.Span[0] = new LuaList();
-                return new(1);
-            }
-            else
-            {
-                var arg0 = ctx.GetArgument(0);
-                if (TryGetPositiveInteger(arg0, out var capacity))
-                {
-                    buffer.Span[0] = new LuaList(capacity);
-                    return new(1);
-                }
-                else if (arg0.TryRead<IEnumerable<LuaValue>>(out var luaValues))
-                {
-                    buffer.Span[0] = new LuaList(new List<LuaValue>(luaValues));
-                    return new(1);
-                }
-
-                LuaRuntimeException.BadArgument(ctx.State.GetTraceback(), 0, "new");
-                return new(0);
-            }
-        });
-
-
 
 
         static readonly LuaFunction __func_index = new(Metamethods.Index, (ctx, buffer, t) =>
@@ -55,7 +19,7 @@ namespace Lua.Extensions.Collections
 
             var arg1 = ctx.GetArgument(1);
             // if index
-            if (TryGetPositiveInteger(arg1, out var index))
+            if (arg1.TryGetPositiveInteger(out var index))
             {
                 --index;  // Lua's table index from 1
                 if (index < 0 || index >= @this.Count)
@@ -91,7 +55,7 @@ namespace Lua.Extensions.Collections
             var arg1 = ctx.GetArgument(1);
             var arg2 = ctx.GetArgument(2);
             // if index
-            if (TryGetPositiveInteger(arg1, out var index))
+            if (arg1.TryGetPositiveInteger(out var index))
             {
                 --index;  // Lua's table index from 1
                 if (index < 0 || index > @this.Count)
@@ -135,13 +99,29 @@ namespace Lua.Extensions.Collections
             return new(1);
         });
 
+        static readonly LuaFunction __func_concat = new(Metamethods.Concat, (ctx, buffer, t) =>
+        {
+            var @this = ctx.GetArgument<LuaList>(0);
+            var another = ctx.GetArgument<ILuaValueSequence>(1);
+
+            for (var p = LuaValue.Nil;
+            another.TryGetNext(p, out var next);
+            p = next.Key)
+            {
+                @this.m_list.Add(next.Value);
+            }
+
+            buffer.Span[0] = @this;
+            return new(1);
+        });
+
         static LuaList()
         {
             s_metatable = new LuaTable(0, 8);
             s_metatable[Metamethods.Index] = __func_index;
             s_metatable[Metamethods.NewIndex] = __func_newindex;
             s_metatable[Metamethods.Len] = __func_len;
-
+            s_metatable[Metamethods.Concat] = __func_concat;
         }
 
         internal readonly List<LuaValue> m_list;
@@ -179,5 +159,136 @@ namespace Lua.Extensions.Collections
         }
 
         public static implicit operator LuaValue(LuaList @this) => new(@this);
+
+        public bool TryGetNext(in LuaValue key, out KeyValuePair<LuaValue, LuaValue> pair)
+        {
+            pair = default;
+
+            int index;
+            if (key.Type is LuaValueType.Nil)
+            {
+                index = 0;
+                pair = new KeyValuePair<LuaValue, LuaValue>(index, m_list[index]);
+                return true;
+            }
+            else if (!key.TryRead(out index))
+            {
+                return false;
+            }
+
+            index++;
+            if (index >= 0 && index < m_list.Count)
+            {
+                pair = new KeyValuePair<LuaValue, LuaValue>(index, m_list[index]);
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool TryGetValue(in LuaValue key, out LuaValue value)
+        {
+            value = default;
+            if (key.TryRead(out int index))
+            {
+                index--;
+                if (index >= 0 && index < m_list.Count)
+                {
+                    value = m_list[index];
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 要模拟类名下的静态方法
+    /// <code>
+    /// local li = list()
+    /// -- []
+    /// 
+    /// list.add(li, 1, 2, 3)
+    /// -- [1, 2, 3]
+    /// 
+    /// list.remove(li)
+    /// -- [1, 2]
+    /// 
+    /// list.remove(li, 1)
+    /// -- [2]
+    /// </code>
+    /// </summary>
+    public class LuaListSharedMethods
+    {
+        public static readonly LuaTable s_methodTable;
+
+        static readonly LuaFunction __function_new = new("new", (ctx, buffer, t) =>
+        {
+            if (ctx.ArgumentCount == 0)
+            {
+                buffer.Span[0] = new LuaList();
+                return new(1);
+            }
+            else
+            {
+                var arg0 = ctx.GetArgument(0);
+                if (arg0.TryGetPositiveInteger(out var capacity))
+                {
+                    buffer.Span[0] = new LuaList(capacity);
+                    return new(1);
+                }
+                else if (arg0.TryRead<IEnumerable<LuaValue>>(out var luaValues))
+                {
+                    buffer.Span[0] = new LuaList(new List<LuaValue>(luaValues));
+                    return new(1);
+                }
+                else if (arg0.TryRead<LuaTable>(out var table))
+                {
+                    if (table == s_methodTable)
+                    {
+                        // as default ctor
+                        buffer.Span[0] = new LuaList();
+                        return new(1);
+                    }
+                    else
+                    {
+                        // another table
+                        var _list = new LuaList(table.ArrayLength);
+                        // only integer keys?
+                        for (LuaValue d = 0;
+                        table.TryGetNext(d, out var value);
+                        d = value.Key)
+                        {
+                            _list.m_list.Add(value.Value);
+                        }
+                        buffer.Span[0] = _list;
+                        return new(1);
+                    }
+                }
+
+                LuaRuntimeException.BadArgument(ctx.State.GetTraceback(), 0, "new");
+                return new(0);
+            }
+        });
+
+        static readonly LuaFunction __function_add = new("add", (ctx, buffer, t) =>
+        {
+            var @this = ctx.GetArgument<LuaList>(0);
+            var val = ctx.GetArgument(1);
+            @this.m_list.Add(val);
+            buffer.Span[0] = @this;
+            return new(1);
+        });
+
+        static LuaListSharedMethods()
+        {
+            s_methodTable = new LuaTable(0, 8)
+            {
+                Metatable = new LuaTable(0, 8)
+            };
+            s_methodTable.Metatable[Metamethods.Call] = __function_new;
+            s_methodTable["new"] = __function_new;
+            s_methodTable["add"] = __function_add;
+        }
     }
 }

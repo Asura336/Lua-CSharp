@@ -1,4 +1,6 @@
-﻿using Lua;
+﻿using System.Runtime.CompilerServices;
+using Lua;
+using Lua.Extensions.Collections;
 using Lua.Runtime;
 using Lua.Standard;
 
@@ -60,6 +62,52 @@ print('')
             lua.Environment["__list"] = MyList.__func_create;
             await lua.DoStringAsync(code, "test-my-list");
         }
+
+        static async ValueTask RunWithExtLib(string code, [CallerMemberName] string chunkName = "undefined")
+        {
+            var lua = LuaState.Create();
+            lua.OpenStandardLibraries();
+            lua.OpenCollectionsExtLib();
+            await lua.DoStringAsync(code, chunkName);
+        }
+
+        [TestMethod]
+        public async ValueTask TestMyList1() => await RunWithExtLib("""
+local li = list.new()
+
+li[#li + 1] = 1
+li[#li + 1] = 2
+list.add(li, 114514)
+
+assert(li.count == 3)
+assert(#li == 3)
+
+local li_1 = list()
+li_1[#li_1 + 1] = 514
+li_1 = li..li_1..{ 1919810 }
+
+print('----for loop----')
+-- for loop
+local len = #li
+for i = 1, len do
+    print(li[i])
+end
+print('')
+
+print('----for pairs----')
+-- foreach
+for i, v in pairs(li) do
+    print(i, v)
+end
+print('')
+
+print('----for ipairs----')
+-- foreach
+for i, v in ipairs(li) do
+    print(i, v)
+end
+print('')
+""");
     }
 
     public sealed class MyList(List<LuaValue> list) : Lua.ILuaUserData, ILuaValueSequence
@@ -217,13 +265,17 @@ print('')
 
         static readonly LuaFunction __func_concat = new("concat", (ctx, buffer, t) =>
         {
-            // 简单起见，假定参数是 MyList
-            var arg0 = ctx.GetArgument<MyList>(0);
-            var arg1 = ctx.GetArgument<MyList>(1);
-            var res = new MyList(arg0.Count + arg1.Count);
-            res.m_body.AddRange(arg0.m_body);
-            res.m_body.AddRange(arg1.m_body);
-            buffer.Span[0] = res;
+            var @this = ctx.GetArgument<MyList>(0);
+            var another = ctx.GetArgument<ILuaValueSequence>(1);
+
+            for (var p = LuaValue.Nil;
+            another.TryGetNext(p, out var next);
+            p = next.Key)
+            {
+                @this.m_body.Add(next.Value);
+            }
+
+            buffer.Span[0] = @this;
             return new(1);
         });
         #endregion
@@ -275,7 +327,7 @@ print('')
             }
 
             index++;
-            if (index >=0 && index < m_body.Count)
+            if (index >= 0 && index < m_body.Count)
             {
                 pair = new KeyValuePair<LuaValue, LuaValue>(index, m_body[index]);
                 return true;
