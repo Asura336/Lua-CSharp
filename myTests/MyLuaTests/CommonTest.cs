@@ -891,5 +891,24 @@ rect1:printArea()  -- 输出 "矩形面积为 50"
 local rect2 = Rectangle:new(nil, 7, 3)  -- 创建一个长为 7，宽为 3 的矩形
 rect2:printArea()  -- 输出 "矩形面积为 21"
 """);
+
+        [TestMethod]
+        public async ValueTask Test_Closure() => await ShowCompileInfo("""
+
+local MENU_ITEMS = {
+  ["test"] = 'test'
+}
+
+local func
+
+do
+  local var = "test"
+  func = function()
+    print(var)
+  end
+end
+
+func()
+""");
     }
 }
