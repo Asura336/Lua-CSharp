@@ -166,7 +166,8 @@ public readonly struct LuaValue : IEquatable<LuaValue>
                     result = Unsafe.As<object, T>(ref v);
                     return true;
                 }
-                else if (t == typeof(object))
+                else if (t == typeof(ILuaValueSequence)
+                    || t == typeof(object))
                 {
                     result = (T)referenceValue!;
                     return true;
